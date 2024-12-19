@@ -17,7 +17,7 @@ pub enum Command {
         #[arg(index = 2)]
         command: String,
         /// Command executed by alias
-        #[arg(index = 3)]
+        #[arg(short = 'g', long = "group")]
         group: Option<String>,
     },
     /// Remove alias
@@ -42,5 +42,9 @@ pub enum Command {
         import_path: String,
     },
     /// Fix alias config when the alias config fails
-    Rebuild {},
+    Rebuild {
+        /// Specified setting file path
+        #[arg(index = 1)]
+        setting_path: String,
+    },
 }

@@ -3,7 +3,7 @@
 - feat: 支持跨平台（MacOS、Linux、Windows）设置全局命令别名（仅支持对当前用户设置）
 - feat: 支持通过配置文件定义别名（alias-setting.toml）
 - feat: 支持别名分组
-todo- feat: 支持运行时指定配置文件路径
+- feat: 支持运行时指定配置文件路径（仅rebuild实装）
 - feat: 支持配置文件中自定义别名脚本根目录
 
 ## 0.2.0

@@ -4,16 +4,16 @@ use crate::core::{
     alias_setting::{AliasGroupSetting, AliasSetting, TomlSetting},
     error::AliasError,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 pub struct MacosAlias {
     unix_like_base: UnixLikeAlias,
 }
 
 impl MacosAlias {
-    pub fn new() -> Result<Self, AliasError> {
+    pub fn new(setting_path: Option<PathBuf>) -> Result<Self, AliasError> {
         Ok(Self {
-            unix_like_base: UnixLikeAlias::new()?,
+            unix_like_base: UnixLikeAlias::new(setting_path)?,
         })
     }
 }

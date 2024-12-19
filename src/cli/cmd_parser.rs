@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, path::PathBuf, str::FromStr};
 
 use clap::Parser;
 
@@ -27,17 +27,17 @@ pub fn parse() -> Result<(), AliasError> {
                 Some(group) => group,
                 None => "default".to_owned(),
             };
-            let mut alias_impl = get_alias()?.unwrap();
+            let mut alias_impl = get_alias(None)?.unwrap();
             alias_impl.set(group_name, alias, AliasSetting { cmd: command })?;
             alias_impl.commit()?;
         }
         Remove { alias } => {
-            let mut alias_impl = get_alias()?.unwrap();
+            let mut alias_impl = get_alias(None)?.unwrap();
             alias_impl.remove(&"default".to_owned(), &alias)?;
             alias_impl.commit()?;
         }
         List {} => {
-            let list = get_alias()?.unwrap().get_all()?;
+            let list = get_alias(None)?.unwrap().get_all()?;
             let mut total = 0;
             for (group, group_setting) in &list {
                 total += group_setting.mapping.len();
@@ -49,18 +49,19 @@ pub fn parse() -> Result<(), AliasError> {
             println!("total {}", total);
         }
         Clear {} => {
-            get_alias()?.unwrap().clear()?;
-            get_alias_manage()?.unwrap().rebuild()?; // TODO clear实现存在bug，临时解决方案
+            get_alias(None)?.unwrap().clear()?;
+            get_alias_manage(None)?.unwrap().rebuild()?; // TODO clear实现存在bug，临时解决方案
         }
         Export { export_path } => {
-            get_alias_manage()?.unwrap().export(&export_path)?;
+            get_alias_manage(None)?.unwrap().export(&export_path)?;
             println!("export see: {}", export_path);
         }
         Import { import_path } => {
-            get_alias_manage()?.unwrap().import(&import_path)?;
+            get_alias_manage(None)?.unwrap().import(&import_path)?;
         }
-        Rebuild {} => {
-            get_alias_manage()?.unwrap().rebuild()?;
+        Rebuild { setting_path } => {
+            let setting_path = PathBuf::from_str(&setting_path).unwrap();
+            get_alias_manage(Some(setting_path))?.unwrap().rebuild()?;
         }
     }
     println!("done");

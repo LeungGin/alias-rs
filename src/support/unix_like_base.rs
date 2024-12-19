@@ -24,8 +24,9 @@ pub struct UnixLikeAlias {
 }
 
 impl UnixLikeAlias {
-    pub fn new() -> Result<Self, AliasError> {
-        let setting_path = PathBuf::from_str(DEFAULT_SETTING_FILE_PATH).unwrap();
+    pub fn new(setting_path: Option<PathBuf>) -> Result<Self, AliasError> {
+        let setting_path =
+            setting_path.unwrap_or(PathBuf::from_str(DEFAULT_SETTING_FILE_PATH).unwrap());
         Ok(Self {
             alias_base: AliasBase::new(setting_path)?,
         })
