@@ -8,4 +8,4 @@ alias-2 = { cmd = "cd ~" }
 
 [alias.alias-group-1.mapping]
 alias-1-1 = { cmd = "ls -l" }
-alias-1-1 = { cmd = "cd ~" }
+alias-1-2 = { cmd = "cd ~" }

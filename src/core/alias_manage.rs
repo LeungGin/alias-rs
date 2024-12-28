@@ -5,7 +5,11 @@ use crate::{
         error::{AliasError, AliasErrorCode},
     },
 };
-use std::{fs::File, io::Read, path::Path};
+use std::{
+    fs::{self, File},
+    io::Read,
+    path::Path,
+};
 
 use super::alias_setting::TomlSetting;
 
@@ -51,21 +55,15 @@ impl AliasManage for AliasManager {
                 })
             }
         };
-        // create export file
-        let export_path = Path::new(export_path);
-        if export_path.exists() {
+        // write export file
+        if !fs::exists(export_path).unwrap_or(false) {
             return Err(AliasError {
                 err: AliasErrorCode::Unkonw,
-                msg: format!("export path is exists :: {}", export_path.display()),
+                msg: format!("export path is exists :: {}", export_path),
             });
         }
-        // write export file
-        let mut export_file = files::create_if_absent(&export_path.to_path_buf())?;
-        files::overwrite(
-            &mut export_file,
-            &export_path.display().to_string(),
-            &content,
-        )?;
+        let mut export_file = files::create_if_absent(export_path)?;
+        files::overwrite(&mut export_file, export_path, &content)?;
         Ok(())
     }
 

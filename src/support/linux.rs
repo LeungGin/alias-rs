@@ -1,19 +1,24 @@
 use super::unix_like_base::UnixLikeAlias;
+
 use crate::core::{
     alias::Alias,
     alias_setting::{AliasGroupSetting, AliasSetting, TomlSetting},
     error::AliasError,
 };
-use std::{collections::HashMap, path::PathBuf};
+
+use std::collections::HashMap;
 
 pub struct LinuxAlias {
     unix_like_base: UnixLikeAlias,
 }
 
 impl LinuxAlias {
-    pub fn new(setting_path: Option<PathBuf>) -> Result<Self, AliasError> {
+    pub fn new(
+        setting_path: Option<String>,
+        runtime_variables: &HashMap<String, String>,
+    ) -> Result<Self, AliasError> {
         Ok(Self {
-            unix_like_base: UnixLikeAlias::new(setting_path)?,
+            unix_like_base: UnixLikeAlias::new(setting_path, runtime_variables)?,
         })
     }
 }

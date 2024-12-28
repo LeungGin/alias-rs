@@ -6,29 +6,26 @@ use crate::{
         error::{AliasError, AliasErrorCode},
     },
 };
-use std::{
-    collections::HashMap,
-    io::Read,
-    path::{Path, PathBuf},
-    process::Command,
-    str::FromStr,
-};
+
+use std::{collections::HashMap, io::Read, process::Command};
 
 const _DEFAULT_ROOT: &str = "~/.rb-alias";
 const DEFAULT_SETTING_FILE_PATH: &str = "~/.rb-alias/alias-setting.toml";
 const DEFAULT_SCRIPT_ROOT: &str = "~/.rb-alias/script";
-const DEFAULT_DEFINE_SCRIPT_PATH: &str = "/define/alias-define.sh";
+const DEFAULT_DEFINE_SCRIPT_FILE_PATH: &str = "/define/alias-define.sh";
 
 pub struct UnixLikeAlias {
     pub alias_base: AliasBase,
 }
 
 impl UnixLikeAlias {
-    pub fn new(setting_path: Option<PathBuf>) -> Result<Self, AliasError> {
-        let setting_path =
-            setting_path.unwrap_or(PathBuf::from_str(DEFAULT_SETTING_FILE_PATH).unwrap());
+    pub fn new(
+        setting_path: Option<String>,
+        runtime_variables: &HashMap<String, String>,
+    ) -> Result<Self, AliasError> {
+        let setting_path = setting_path.unwrap_or(DEFAULT_SETTING_FILE_PATH.to_owned());
         Ok(Self {
-            alias_base: AliasBase::new(setting_path)?,
+            alias_base: AliasBase::new(&setting_path, runtime_variables)?,
         })
     }
 
@@ -44,7 +41,7 @@ impl UnixLikeAlias {
     fn commit_alias_script(&self) -> Result<(), AliasError> {
         let script_root_path = self.get_script_root_path();
         for (alias, set_cache) in &self.alias_base.set_buffer {
-            let script_path = Path::new(&script_root_path).join(alias.to_owned() + ".sh");
+            let script_path = format!("{}/{}.sh", script_root_path, alias);
             files::remove(&script_path)?;
             if set_cache.set_type == SetType::Set {
                 self.create_alias_script(&script_path, &set_cache.setting.as_ref().unwrap())?;
@@ -55,25 +52,26 @@ impl UnixLikeAlias {
 
     fn create_alias_script(
         &self,
-        path: &PathBuf,
+        path: &String,
         alias_setting: &AliasSetting,
     ) -> Result<(), AliasError> {
         let mut script = files::create_if_absent(&path)?;
-        files::overwrite(&mut script, &path.display().to_string(), &alias_setting.cmd)?;
+        files::overwrite(&mut script, path, &alias_setting.cmd)?;
         Ok(())
     }
 
     fn commit_define_script(&self) -> Result<(), AliasError> {
-        let script_root_path = self.get_script_root_path() + DEFAULT_DEFINE_SCRIPT_PATH;
-        self.overwrite_define_script(
-            &PathBuf::from_str(&script_root_path).unwrap(),
-            &self.alias_base.get_all()?,
-        )
+        let script_root_path = format!(
+            "{}/{}",
+            self.get_script_root_path(),
+            DEFAULT_DEFINE_SCRIPT_FILE_PATH
+        );
+        self.overwrite_define_script(&script_root_path, &self.alias_base.get_all()?)
     }
 
     fn overwrite_define_script(
         &self,
-        path: &PathBuf,
+        path: &String,
         alias_group_mapping: &HashMap<String, AliasGroupSetting>,
     ) -> Result<(), AliasError> {
         let mut content = String::new();
@@ -82,8 +80,8 @@ impl UnixLikeAlias {
                 content.push_str(&format!("alias {}=\"{}\"\n", alias, alias_setting.cmd));
             }
         }
-        let mut define_script = files::create_if_absent(&path)?;
-        files::overwrite(&mut define_script, &path.display().to_string(), &content)?;
+        let mut define_script = files::create_if_absent(path)?;
+        files::overwrite(&mut define_script, path, &content)?;
         Ok(())
     }
 
@@ -100,7 +98,7 @@ impl UnixLikeAlias {
         // set define
         let source_define_script_cmd = format!(
             "# rb-alias auto set :: start\nsource {}\n# rb-alias auto set :: end",
-            self.get_script_root_path() + DEFAULT_DEFINE_SCRIPT_PATH
+            self.get_script_root_path() + DEFAULT_DEFINE_SCRIPT_FILE_PATH
         );
         if profile_content.contains(&source_define_script_cmd) {
             return Ok(());

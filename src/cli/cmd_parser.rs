@@ -1,5 +1,4 @@
-use std::{env, path::PathBuf, str::FromStr};
-
+use std::{collections::HashMap, env};
 use clap::Parser;
 
 use crate::{
@@ -17,7 +16,9 @@ pub fn parse() -> Result<(), AliasError> {
         eprintln!("unsupport os :: {}", env::consts::OS);
         return Err(AliasError::new(AliasErrorCode::Unkonw, String::from("")));
     }
-    match Cli::parse().command {
+    let cli = Cli::parse();
+    let runtime_variables = runtime_variables_vec_to_map(cli.runtime_variables)?;
+    match cli.command {
         Set {
             alias,
             command,
@@ -27,17 +28,17 @@ pub fn parse() -> Result<(), AliasError> {
                 Some(group) => group,
                 None => "default".to_owned(),
             };
-            let mut alias_impl = get_alias(None)?.unwrap();
+            let mut alias_impl = get_alias(None, &runtime_variables)?.unwrap();
             alias_impl.set(group_name, alias, AliasSetting { cmd: command })?;
             alias_impl.commit()?;
         }
         Remove { alias } => {
-            let mut alias_impl = get_alias(None)?.unwrap();
+            let mut alias_impl = get_alias(None, &runtime_variables)?.unwrap();
             alias_impl.remove(&"default".to_owned(), &alias)?;
             alias_impl.commit()?;
         }
         List {} => {
-            let list = get_alias(None)?.unwrap().get_all()?;
+            let list = get_alias(None, &runtime_variables)?.unwrap().get_all()?;
             let mut total = 0;
             for (group, group_setting) in &list {
                 total += group_setting.mapping.len();
@@ -49,21 +50,48 @@ pub fn parse() -> Result<(), AliasError> {
             println!("total {}", total);
         }
         Clear {} => {
-            get_alias(None)?.unwrap().clear()?;
-            get_alias_manage(None)?.unwrap().rebuild()?; // TODO clear实现存在bug，临时解决方案
+            get_alias(None, &runtime_variables)?.unwrap().clear()?;
+            get_alias_manage(None, &runtime_variables)?
+                .unwrap()
+                .rebuild()?; // TODO clear实现存在bug，临时解决方案
         }
         Export { export_path } => {
-            get_alias_manage(None)?.unwrap().export(&export_path)?;
+            get_alias_manage(None, &runtime_variables)?
+                .unwrap()
+                .export(&export_path)?;
             println!("export see: {}", export_path);
         }
         Import { import_path } => {
-            get_alias_manage(None)?.unwrap().import(&import_path)?;
+            get_alias_manage(None, &runtime_variables)?
+                .unwrap()
+                .import(&import_path)?;
         }
         Rebuild { setting_path } => {
-            let setting_path = PathBuf::from_str(&setting_path).unwrap();
-            get_alias_manage(Some(setting_path))?.unwrap().rebuild()?;
+            get_alias_manage(Some(setting_path), &runtime_variables)?
+                .unwrap()
+                .rebuild()?;
         }
     }
     println!("done");
     return Ok(());
+}
+
+fn runtime_variables_vec_to_map(
+    variables: Vec<String>,
+) -> Result<HashMap<String, String>, AliasError> {
+    let mut map: HashMap<String, String> = HashMap::new();
+    for kv in variables {
+        let split: Vec<&str> = kv.split('=').collect();
+        if split.len() == 2 {
+            map.insert(split[0].to_owned(), split[1].to_owned());
+        } else {
+            return Err(
+                AliasError {
+                    err: AliasErrorCode::Unkonw, 
+                    msg: format!("runtime variables define should be like \"-d key=value\" or \"--define key=value\" :: {}", kv) 
+                }
+            );
+        }
+    }
+    Ok(map)
 }

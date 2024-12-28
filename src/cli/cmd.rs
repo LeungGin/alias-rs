@@ -4,6 +4,8 @@ use clap::{Parser, Subcommand};
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,
+    #[arg(short = 'd', long = "define")]
+    pub runtime_variables: Vec<String>,
 }
 
 #[derive(Debug, Subcommand)]

@@ -6,11 +6,7 @@ use crate::{
         error::AliasError,
     },
 };
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::collections::HashMap;
 
 const _DEFAULT_ROOT: &str = "%LocalAppData%/.rb-alias";
 const DEFAULT_SETTING_FILE_PATH: &str = "%LocalAppData%/.rb-alias/alias-setting.toml";
@@ -21,11 +17,13 @@ pub struct WindowsAlias {
 }
 
 impl WindowsAlias {
-    pub fn new(setting_path: Option<PathBuf>) -> Result<Self, AliasError> {
-        let setting_path =
-            setting_path.unwrap_or(PathBuf::from_str(DEFAULT_SETTING_FILE_PATH).unwrap());
+    pub fn new(
+        setting_path: Option<String>,
+        runtime_variables: &HashMap<String, String>,
+    ) -> Result<Self, AliasError> {
+        let setting_path = setting_path.unwrap_or(DEFAULT_SETTING_FILE_PATH.to_owned());
         Ok(Self {
-            alias_base: AliasBase::new(setting_path)?,
+            alias_base: AliasBase::new(&setting_path, runtime_variables)?,
         })
     }
 
@@ -57,7 +55,7 @@ impl WindowsAlias {
     fn commit_alias_script(&self) -> Result<(), AliasError> {
         let script_root_path = self.get_script_root_path();
         for (alias, set_cache) in &self.alias_base.set_buffer {
-            let script_path = Path::new(&script_root_path).join(alias.to_owned() + ".bat");
+            let script_path = format!("{}\\{}.bat", script_root_path, alias);
             files::remove(&script_path)?;
             if set_cache.set_type == SetType::Set {
                 let script = format!(

@@ -5,20 +5,20 @@ use crate::{
     core::error::{AliasError, AliasErrorCode},
 };
 use std::{
-    path::PathBuf,
+    fs,
     process::{Command, ExitStatus},
 };
 
-pub fn create_ansi_file(path: &PathBuf, content: &String) -> Result<(), AliasError> {
-    if path.exists() {
+pub fn create_ansi_file(path: &String, content: &String) -> Result<(), AliasError> {
+    if !fs::exists(path).unwrap_or(false) {
         return Err(AliasError {
             err: AliasErrorCode::Unkonw,
-            msg: format!("file exists :: {}", path.display()),
+            msg: format!("file exists :: {}", path),
         });
     }
     let mut file = files::create(path)?;
     let (encoded_str, _, _) = GBK.encode(&content);
-    files::overwrite_with_bytes(&mut file, &path.display().to_string(), &encoded_str)?;
+    files::overwrite_with_bytes(&mut file, path, &encoded_str)?;
     Ok(())
 }
 
