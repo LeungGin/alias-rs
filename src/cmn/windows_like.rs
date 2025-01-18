@@ -1,9 +1,8 @@
-use encoding_rs::GBK;
-
 use crate::{
     cmn::files,
     core::error::{AliasError, AliasErrorCode},
 };
+use encoding_rs::GBK;
 use std::{
     fs,
     process::{Command, ExitStatus},

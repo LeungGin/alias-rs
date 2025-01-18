@@ -1,155 +1,102 @@
 use crate::{
     cmn::{files, windows_like},
     core::{
-        alias::{Alias, AliasBase, SetType},
-        alias_setting::{self, AliasGroupSetting, AliasSetting, TomlSetting},
+        alias::Alias,
+        alias_setting::{AliasSetting, AliasSettingLoader},
         error::AliasError,
     },
 };
 use std::collections::HashMap;
 
-const _DEFAULT_ROOT: &str = "%LocalAppData%/.rb-alias";
-const DEFAULT_SETTING_FILE_PATH: &str = "%LocalAppData%/.rb-alias/alias-setting.toml";
-const DEFAULT_SCRIPT_ROOT: &str = "%LocalAppData%/.rb-alias/script";
+const _DEFAULT_HOME: &str = "%LocalAppData%/.alias-rs";
+const DEFAULT_SCRIPT_HOME: &str = "%LocalAppData%/.alias-rs/script";
+const DEFAULT_SCRIPT_HOME_ENV_NAME: &str = "ALIAS_SCRIPT_HOME";
+const DEFAULT_SETTING_PATH: &str = "%LocalAppData%/.alias-rs/alias-setting.toml";
 
 pub struct WindowsAlias {
-    alias_base: AliasBase,
+    pub setting: AliasSetting,
 }
 
 impl WindowsAlias {
     pub fn new(
-        setting_path: Option<String>,
+        setting_path: &Option<String>,
         runtime_variables: &HashMap<String, String>,
     ) -> Result<Self, AliasError> {
-        let setting_path = setting_path.unwrap_or(DEFAULT_SETTING_FILE_PATH.to_owned());
+        let setting_path = setting_path
+            .as_ref()
+            .map_or(DEFAULT_SETTING_PATH.to_owned(), |f| f.to_owned());
+        let mut setting_loader = AliasSettingLoader::new(&setting_path, &runtime_variables)?;
+        if setting_loader.setting.script.home.is_none() {
+            setting_loader.setting.script.home = Some(DEFAULT_SCRIPT_HOME.to_owned());
+        }
+        if setting_loader.setting.script.home_env_name.is_none() {
+            setting_loader.setting.script.home_env_name =
+                Some(DEFAULT_SCRIPT_HOME_ENV_NAME.to_owned())
+        }
         Ok(Self {
-            alias_base: AliasBase::new(&setting_path, runtime_variables)?,
+            setting: setting_loader.setting,
         })
     }
 
-    fn get_script_root_env_var_name(&self) -> String {
-        let global_setting = &self.alias_base.setting.global;
-        if global_setting.script_root_env_var_name.is_some() {
-            global_setting
-                .script_root_env_var_name
-                .as_ref()
-                .unwrap()
-                .to_string()
-        } else {
-            alias_setting::DEFAULT_SCRIPT_ROOT_ENV_VAR_NAME.to_owned()
-        }
-    }
-
-    fn get_script_root_path(&self) -> String {
-        let global_setting = &self.alias_base.setting.global;
-        if global_setting.script_root.is_some() {
-            global_setting.script_root.as_ref().unwrap().to_string()
-        } else {
-            DEFAULT_SCRIPT_ROOT.to_owned()
-        }
-    }
-
-    /// 因为Windows的系统限制，PowerShell更便于实现逻辑，
-    /// 但ps1脚本默认禁用，所以使用bat脚本执行PowerShell.exe
-    /// 的方式绕过系统限制执行ps1命令
-    fn commit_alias_script(&self) -> Result<(), AliasError> {
-        let script_root_path = self.get_script_root_path();
-        for (alias, set_cache) in &self.alias_base.set_buffer {
-            let script_path = format!("{}\\{}.bat", script_root_path, alias);
-            files::remove(&script_path)?;
-            if set_cache.set_type == SetType::Set {
-                let script = format!(
-                    "PowerShell -ExecutionPolicy Bypass -Command {} ^$args",
-                    windows_like::convert_to_bat_str_arg(
-                        set_cache.setting.as_ref().unwrap().cmd.clone()
-                    )
-                );
-                windows_like::create_ansi_file(&script_path, &script)?;
-            }
-        }
-        Ok(())
-    }
-
-    fn set_script_to_env_var(&self) -> Result<(), AliasError> {
-        // set 'script root' env var
-        let var_name = self.get_script_root_env_var_name();
-        let var_value = self.get_script_root_path();
-        let old_var_value = windows_like::get_user_env_var(&var_name)?;
-        if old_var_value.is_none() || old_var_value.unwrap() != var_value {
-            windows_like::set_user_env_var(var_name.clone(), var_value)?;
-        }
-        // set 'path' env var
-        let script_root_placeholder = format!("%{}%", var_name);
-        match windows_like::get_user_env_var(&"Path".to_owned())? {
-            Some(old_var_value) => {
-                if !old_var_value.contains(&script_root_placeholder) {
-                    windows_like::set_user_env_var(
-                        "Path".to_owned(),
-                        format!("{};{}", old_var_value, script_root_placeholder),
-                    )?;
-                }
-            }
-            None => {
-                windows_like::set_user_env_var("Path".to_owned(), script_root_placeholder)?;
-            }
-        }
-        Ok(())
+    fn build_alias_script_path(&self, alias: &String) -> String {
+        format!(
+            "{}/{}.bat",
+            self.setting.script.home.as_ref().unwrap(),
+            alias
+        )
     }
 }
 
 impl Alias for WindowsAlias {
-    fn get(&self, group: &String, alias: &String) -> Result<Option<AliasSetting>, AliasError> {
-        self.alias_base.get(group, alias)
-    }
-
-    fn get_group(&self, group: &String) -> Result<Option<AliasGroupSetting>, AliasError> {
-        self.alias_base.get_group(group)
-    }
-
-    fn get_all(&self) -> Result<HashMap<String, AliasGroupSetting>, AliasError> {
-        self.alias_base.get_all()
-    }
-
-    fn set(
-        &mut self,
-        group: String,
-        alias: String,
-        setting: AliasSetting,
-    ) -> Result<(), AliasError> {
-        self.alias_base.set(group, alias, setting)
-    }
-
-    fn remove(&mut self, group: &String, alias: &String) -> Result<(), AliasError> {
-        self.alias_base.remove(group, alias)
-    }
-
-    fn remove_group(&mut self, group: &String) -> Result<(), AliasError> {
-        self.alias_base.remove_group(group)
-    }
-
-    fn clear(&mut self) -> Result<(), AliasError> {
-        self.alias_base.clear()
-    }
-
-    /*
-    PSshell: 直接查询注册表（满足需求）
-    (reg query "HKCU\Environment" /v "Path")[2] -split "    " | Select-Object -Last 1
-
-    PSshell: 设置用户级环境变量（满足需求）
-    [System. Environment]::SetEnvironmentVariable("新环境变量名", "旧变量值" + ";" + "新变量值", "USER")
-
-    PSshell: 通过cmd执行ps1脚本绕过系统限制
-    PowerShell -ExecutionPolicy Bypass -File ./xxx.ps1
-    */
-    fn commit(&mut self) -> Result<(), AliasError> {
-        self.alias_base.commit()?; // commit setting
-        self.commit_alias_script()?;
-        self.set_script_to_env_var()?;
-        self.alias_base.clear_cache();
+    fn init(&self) -> Result<(), AliasError> {
+        // set 'script home' env
+        let home_name = self.setting.script.home_env_name.as_ref().unwrap();
+        let home_value = self.setting.script.home.as_ref().unwrap();
+        let old_home_value = windows_like::get_user_env_var(&home_name)?;
+        if old_home_value.is_none() || &old_home_value.unwrap() != home_value {
+            windows_like::set_user_env_var(home_name.clone(), home_value.clone())?;
+        }
+        // set 'Path' env
+        let path_name = "Path".to_owned();
+        let home_var_placeholder = format!("%{}%", home_name);
+        match windows_like::get_user_env_var(&path_name)? {
+            Some(old_var_value) => {
+                if !old_var_value.contains(&home_var_placeholder) {
+                    windows_like::set_user_env_var(
+                        path_name,
+                        format!("{};{}", old_var_value, home_var_placeholder),
+                    )?;
+                }
+            }
+            None => {
+                windows_like::set_user_env_var(path_name, home_var_placeholder)?;
+            }
+        }
         Ok(())
     }
 
-    fn overwrite_setting(&mut self, setting: TomlSetting) -> Result<(), AliasError> {
-        self.alias_base.overwrite_setting(&setting)
+    fn setting(&self) -> AliasSetting {
+        self.setting.clone()
+    }
+
+    fn set(&self, alias: String, command: String) -> Result<(), AliasError> {
+        let alias_script_path = self.build_alias_script_path(&alias);
+        files::remove(&alias_script_path)?;
+        let bat_script = format!(
+            "PowerShell -ExecutionPolicy Bypass -Command {} ^$args",
+            windows_like::convert_to_bat_str_arg(command)
+        );
+        windows_like::create_ansi_file(&alias_script_path, &bat_script)?;
+        Ok(())
+    }
+
+    fn remove(&self, alias: String) -> Result<(), AliasError> {
+        let alias_script_path = self.build_alias_script_path(&alias);
+        files::remove(&alias_script_path)?;
+        Ok(())
+    }
+
+    fn list(&self) -> Result<Option<Vec<String>>, AliasError> {
+        files::list_dir(&self.setting.script.home.as_ref().unwrap())
     }
 }

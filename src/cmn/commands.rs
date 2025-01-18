@@ -1,12 +1,10 @@
-use encoding_rs::UTF_8;
-
+use super::windows_like;
 use crate::core::error::{AliasError, AliasErrorCode};
+use encoding_rs::UTF_8;
 use std::{
     env::consts::OS,
     process::{Command, ExitStatus},
 };
-
-use super::windows_like;
 
 pub struct ExecuteResult {
     pub status: ExitStatus,
@@ -14,7 +12,7 @@ pub struct ExecuteResult {
 }
 
 impl ExecuteResult {
-    pub fn get_stdout_vec(&self) -> Option<Vec<String>> {
+    pub fn _get_stdout_vec(&self) -> Option<Vec<String>> {
         let result: Vec<String> = self
             .stdout
             .split("\r\n")
@@ -47,7 +45,7 @@ pub fn execute(cmd: &String) -> Result<ExecuteResult, AliasError> {
 }
 
 fn execute_unix(cmd: &String) -> Result<ExecuteResult, AliasError> {
-    let output = match Command::new(cmd).output() {
+    let output = match Command::new("sh").arg("-c").arg(cmd).output() {
         Ok(out) => out,
         Err(e) => {
             return Err(AliasError {

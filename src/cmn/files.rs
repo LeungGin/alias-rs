@@ -1,53 +1,13 @@
-use super::commands;
-
 use crate::core::error::{AliasError, AliasErrorCode};
-
 use std::{
-    env::consts::OS,
     fs::{self, File},
     io::Write,
     path::PathBuf,
     str::FromStr,
 };
 
-fn get_home_dir() -> Result<String, AliasError> {
-    if OS == "macos" || OS == "linux" || OS == "windows" {
-        let result = commands::execute(&"echo ~".to_owned())?;
-        if !result.status.success() {
-            return Err(AliasError {
-                err: AliasErrorCode::Unkonw,
-                msg: format!("get home dir fail :: {}", result.stdout),
-            });
-        }
-        Ok(result.stdout)
-    } else {
-        Err(AliasError {
-            err: AliasErrorCode::Unkonw,
-            msg: format!("unsupported os :: {}", OS),
-        })
-    }
-}
-
-fn replace_home_dir_char(path: String) -> Result<String, AliasError> {
-    if path.starts_with("~") {
-        let home_dir = get_home_dir()?;
-        if path.len() == 1 {
-            Ok(home_dir)
-        } else {
-            Ok(home_dir + &path[1..path.len()])
-        }
-    } else {
-        Ok(path.to_owned())
-    }
-}
-
-fn to_path_buf(path: &String) -> Result<PathBuf, AliasError> {
-    let path = replace_home_dir_char(path.to_owned())?;
-    Ok(PathBuf::from_str(&path).unwrap())
-}
-
 pub fn create_if_absent(path: &String) -> Result<File, AliasError> {
-    let path_buf = to_path_buf(path)?;
+    let path_buf = PathBuf::from_str(path).unwrap();
     if path_buf.exists() {
         return File::open(&path_buf).map_err(|e| AliasError {
             err: AliasErrorCode::Unkonw,
@@ -58,7 +18,7 @@ pub fn create_if_absent(path: &String) -> Result<File, AliasError> {
 }
 
 pub fn create(path: &String) -> Result<File, AliasError> {
-    let path_buf = to_path_buf(path)?;
+    let path_buf = PathBuf::from_str(path).unwrap();
     if let Some(parent) = path_buf.parent() {
         if let Err(e) = fs::create_dir_all(parent) {
             return Err(AliasError {
@@ -73,8 +33,36 @@ pub fn create(path: &String) -> Result<File, AliasError> {
     });
 }
 
+pub fn list_dir(path: &String) -> Result<Option<Vec<String>>, AliasError> {
+    let path_buf = PathBuf::from_str(path).unwrap();
+    if !path_buf.is_dir() {
+        return Ok(None);
+    }
+    match fs::read_dir(path_buf) {
+        Ok(entrys) => {
+            let mut list = Vec::new();
+            for entry in entrys {
+                if let Ok(entry) = entry {
+                    if let Ok(file_type) = entry.file_type() {
+                        if file_type.is_file() {
+                            list.push(entry.file_name().to_string_lossy().to_string());
+                        }
+                    }
+                }
+            }
+            return Ok(Some(list));
+        }
+        Err(e) => {
+            return Err(AliasError {
+                err: AliasErrorCode::Unkonw,
+                msg: format!("read dir fail :: {} :: {}", path, e),
+            })
+        }
+    }
+}
+
 pub fn remove(path: &String) -> Result<(), AliasError> {
-    let path_buf = to_path_buf(path)?;
+    let path_buf = PathBuf::from_str(path).unwrap();
     fs::remove_file(path_buf.display().to_string()).map_err(|e| AliasError {
         err: AliasErrorCode::Unkonw,
         msg: format!("remove file fail :: {} :: {}", path_buf.display(), e),

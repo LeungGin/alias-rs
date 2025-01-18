@@ -1,11 +1,6 @@
-[global]
-script_root = ""
-script_root_env_var_name = ""
+[script]
+home = ""
+home_env_name = ""
 
-[alias.default.mapping]
-alias-1 = { cmd = "ls -l" }
-alias-2 = { cmd = "cd ~" }
-
-[alias.alias-group-1.mapping]
-alias-1-1 = { cmd = "ls -l" }
-alias-1-2 = { cmd = "cd ~" }
+[aliases]
+alias_1 = "ls -l"

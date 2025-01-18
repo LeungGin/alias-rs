@@ -1,52 +1,44 @@
 use clap::{Parser, Subcommand};
 
-#[derive(Debug, Parser)]
+#[derive(Parser)]
 pub struct Cli {
+    /// sub command
     #[command(subcommand)]
     pub command: Command,
-    #[arg(short = 'd', long = "define")]
+    /// alias setting file path
+    #[arg(long = "setting")]
+    pub setting_path: Option<String>,
+    /// runtime variable define, allow multiple inputs.
+    /// e.g. --define var_1=xxx --define var_2=xxx
+    #[arg(long = "define")]
     pub runtime_variables: Vec<String>,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Subcommand)]
 pub enum Command {
-    /// Set alias
+    /// initialize system env setting
+    Init {},
+    /// set alias
     Set {
-        /// Alias what you want
+        /// alias what you want
         #[arg(index = 1)]
         alias: String,
-        /// Command executed by alias
+        /// alias mapping command
         #[arg(index = 2)]
         command: String,
-        /// Command executed by alias
-        #[arg(short = 'g', long = "group")]
-        group: Option<String>,
     },
-    /// Remove alias
+    /// remove alias
     Remove {
-        /// Alias which you want to remove
+        /// alias which you want to remove
         alias: String,
     },
-    /// List all aliases
+    /// list aliases
     List {},
-    /// Clear all aliases
-    Clear {},
-    /// Export all aliases config
+    /// export aliases define
     Export {
-        /// Export file path (include file name)
-        #[arg(index = 1)]
+        /// export path (include file name)
         export_path: String,
     },
-    /// Import aliases config
-    Import {
-        /// Import file path (include file name)
-        #[arg(index = 1)]
-        import_path: String,
-    },
-    /// Fix alias config when the alias config fails
-    Rebuild {
-        /// Specified setting file path
-        #[arg(index = 1)]
-        setting_path: String,
-    },
+    /// import aliases define
+    Import {},
 }

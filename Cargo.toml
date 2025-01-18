@@ -1,12 +1,11 @@
 [package]
-name = "rb-alias-cli"
-version = "0.2.0-snapshot"
+name = "alias-rs-cli"
+version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 clap = { version = "4.5.20", features = ["derive"] }
 serde = { version = "1.0.214", features = ["derive"] }
-serde_json = "1.0.132"
 toml = "0.8.19"
 encoding_rs = "0.8.35"
 regex = "1.11.1"
