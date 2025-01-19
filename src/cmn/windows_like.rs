@@ -1,23 +1,23 @@
-use crate::{
-    cmn::files,
-    core::error::{AliasError, AliasErrorCode},
-};
+use crate::core::error::{AliasError, ErrorKind};
 use encoding_rs::GBK;
 use std::{
-    fs,
+    fs::File,
+    io::Write,
     process::{Command, ExitStatus},
 };
 
+pub fn get_local_app_home() -> String {
+    std::env::var("LocalAppData").map_or(String::default(), |val| val)
+}
+
 pub fn create_ansi_file(path: &String, content: &String) -> Result<(), AliasError> {
-    if !fs::exists(path).unwrap_or(false) {
-        return Err(AliasError {
-            err: AliasErrorCode::Unkonw,
-            msg: format!("file exists :: {}", path),
-        });
-    }
-    let mut file = files::create(path)?;
-    let (encoded_str, _, _) = GBK.encode(&content);
-    files::overwrite_with_bytes(&mut file, path, &encoded_str)?;
+    let encoded_str = GBK.encode(&content).0;
+    File::create(path)
+        .and_then(|mut f| f.write_all(&encoded_str))
+        .map_err(|e| AliasError {
+            kind: ErrorKind::Unkonw,
+            msg: format!(" create ansi file fail :: {}", e),
+        })?;
     Ok(())
 }
 
@@ -47,7 +47,7 @@ pub fn execute_cmd(cmd: &String) -> Result<ExecuteCmdResult, AliasError> {
         Ok(out) => out,
         Err(e) => {
             return Err(AliasError {
-                err: AliasErrorCode::Unkonw,
+                kind: ErrorKind::Unkonw,
                 msg: format!("execute cmd fail :: {} :: {}", cmd, e),
             })
         }
@@ -66,7 +66,7 @@ pub fn execute_cmd(cmd: &String) -> Result<ExecuteCmdResult, AliasError> {
 
 pub fn execute_cmd_in_powershell(cmd: &String) -> Result<ExecuteCmdResult, AliasError> {
     let cmd = format!(
-        "PowerShell -ExecutionPolicy Bypass -Command {} ^$args",
+        "PowerShell -ExecutionPolicy Bypass -Command '{} ^$args'",
         convert_to_bat_str_arg(cmd.to_string())
     );
     execute_cmd(&cmd)
@@ -89,7 +89,7 @@ pub fn get_user_env_var(var_name: &String) -> Result<Option<String>, AliasError>
         }
     } else {
         Err(AliasError {
-            err: AliasErrorCode::Unkonw,
+            kind: ErrorKind::Unkonw,
             msg: format!(
                 "get user environment variable fail :: {} :: {}",
                 var_name, result.stdout
@@ -106,7 +106,7 @@ pub fn set_user_env_var(var_name: String, var_value: String) -> Result<(), Alias
     let result = execute_cmd_in_powershell(&ps_cmd)?;
     if !result.status.success() {
         return Err(AliasError {
-            err: AliasErrorCode::Unkonw,
+            kind: ErrorKind::Unkonw,
             msg: format!(
                 "set user environment variable fail :: {}={} :: {}",
                 var_name, var_value, result.stdout

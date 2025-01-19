@@ -1,5 +1,5 @@
 use super::windows_like;
-use crate::core::error::{AliasError, AliasErrorCode};
+use crate::core::error::{AliasError, ErrorKind};
 use encoding_rs::UTF_8;
 use std::{
     env::consts::OS,
@@ -38,7 +38,7 @@ pub fn execute(cmd: &String) -> Result<ExecuteResult, AliasError> {
         })
     } else {
         Err(AliasError {
-            err: AliasErrorCode::Unkonw,
+            kind: ErrorKind::Unkonw,
             msg: format!("unsupported os :: {}", OS),
         })
     }
@@ -49,7 +49,7 @@ fn execute_unix(cmd: &String) -> Result<ExecuteResult, AliasError> {
         Ok(out) => out,
         Err(e) => {
             return Err(AliasError {
-                err: AliasErrorCode::Unkonw,
+                kind: ErrorKind::Unkonw,
                 msg: format!("execute cmd fail :: {} :: {}", cmd, e),
             })
         }

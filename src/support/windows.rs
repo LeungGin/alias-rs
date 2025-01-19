@@ -2,16 +2,28 @@ use crate::{
     cmn::{files, windows_like},
     core::{
         alias::Alias,
-        alias_setting::{AliasSetting, AliasSettingLoader},
-        error::AliasError,
+        alias_setting::{self, AliasSetting},
+        error::{AliasError, ErrorKind},
     },
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, fs::File};
 
-const _DEFAULT_HOME: &str = "%LocalAppData%/.alias-rs";
-const DEFAULT_SCRIPT_HOME: &str = "%LocalAppData%/.alias-rs/script";
+const DEFAULT_HOME: &str = "alias-rs";
+const DEFAULT_SCRIPT_HOME_NAME: &str = "script";
 const DEFAULT_SCRIPT_HOME_ENV_NAME: &str = "ALIAS_SCRIPT_HOME";
-const DEFAULT_SETTING_PATH: &str = "%LocalAppData%/.alias-rs/alias-setting.toml";
+const DEFAULT_SETTING_NAME: &str = "alias-setting.toml";
+
+pub fn get_default_home() -> String {
+    windows_like::get_local_app_home() + "\\" + DEFAULT_HOME
+}
+
+pub fn get_default_script_home() -> String {
+    get_default_home() + "\\" + DEFAULT_SCRIPT_HOME_NAME
+}
+
+pub fn get_default_setting_path() -> String {
+    get_default_home() + "\\" + DEFAULT_SETTING_NAME
+}
 
 pub struct WindowsAlias {
     pub setting: AliasSetting,
@@ -24,23 +36,20 @@ impl WindowsAlias {
     ) -> Result<Self, AliasError> {
         let setting_path = setting_path
             .as_ref()
-            .map_or(DEFAULT_SETTING_PATH.to_owned(), |f| f.to_owned());
-        let mut setting_loader = AliasSettingLoader::new(&setting_path, &runtime_variables)?;
-        if setting_loader.setting.script.home.is_none() {
-            setting_loader.setting.script.home = Some(DEFAULT_SCRIPT_HOME.to_owned());
+            .map_or(get_default_setting_path(), |f| f.to_owned());
+        let mut setting = alias_setting::load(&setting_path, &runtime_variables)?;
+        if setting.script.home.is_none() {
+            setting.script.home = Some(get_default_script_home());
         }
-        if setting_loader.setting.script.home_env_name.is_none() {
-            setting_loader.setting.script.home_env_name =
-                Some(DEFAULT_SCRIPT_HOME_ENV_NAME.to_owned())
+        if setting.script.home_env_name.is_none() {
+            setting.script.home_env_name = Some(DEFAULT_SCRIPT_HOME_ENV_NAME.to_owned())
         }
-        Ok(Self {
-            setting: setting_loader.setting,
-        })
+        Ok(Self { setting })
     }
 
     fn build_alias_script_path(&self, alias: &String) -> String {
         format!(
-            "{}/{}.bat",
+            "{}\\{}.bat",
             self.setting.script.home.as_ref().unwrap(),
             alias
         )
@@ -81,7 +90,10 @@ impl Alias for WindowsAlias {
 
     fn set(&self, alias: String, command: String) -> Result<(), AliasError> {
         let alias_script_path = self.build_alias_script_path(&alias);
-        files::remove(&alias_script_path)?;
+        File::create(&alias_script_path).map_err(|e| AliasError {
+            kind: ErrorKind::Unkonw,
+            msg: format!("create alias script fail :: {}", e),
+        })?;
         let bat_script = format!(
             "PowerShell -ExecutionPolicy Bypass -Command {} ^$args",
             windows_like::convert_to_bat_str_arg(command)
@@ -92,11 +104,17 @@ impl Alias for WindowsAlias {
 
     fn remove(&self, alias: String) -> Result<(), AliasError> {
         let alias_script_path = self.build_alias_script_path(&alias);
-        files::remove(&alias_script_path)?;
+        files::remove_if_present(&alias_script_path).map_err(|e| AliasError {
+            kind: ErrorKind::Unkonw,
+            msg: format!("remove alias script fail :: {}", e),
+        })?;
         Ok(())
     }
 
     fn list(&self) -> Result<Option<Vec<String>>, AliasError> {
-        files::list_dir(&self.setting.script.home.as_ref().unwrap())
+        files::list_dir(&self.setting.script.home.as_ref().unwrap()).map_err(|e| AliasError {
+            kind: ErrorKind::Unkonw,
+            msg: format!("list alias script fail :: {}", e),
+        })
     }
 }

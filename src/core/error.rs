@@ -1,15 +1,9 @@
 pub struct AliasError {
-    pub err: AliasErrorCode,
+    pub kind: ErrorKind,
     pub msg: String,
 }
 
-impl AliasError {
-    pub fn new(err: AliasErrorCode, msg: String) -> Self {
-        Self { err, msg }
-    }
-}
-
 #[derive(Debug)]
-pub enum AliasErrorCode {
+pub enum ErrorKind {
     Unkonw = 0,
 }

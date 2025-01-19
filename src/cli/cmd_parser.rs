@@ -1,6 +1,6 @@
 use super::cmd::{Cli, Command::*};
 use crate::{
-    core::error::{AliasError, AliasErrorCode},
+    core::error::{AliasError, ErrorKind},
     support::factory::{get_alias, get_alias_importer},
 };
 use clap::Parser;
@@ -12,7 +12,10 @@ use std::{
 pub fn parse() -> Result<(), AliasError> {
     if !support_target_os() {
         eprintln!("unsupport os :: {}", env::consts::OS);
-        return Err(AliasError::new(AliasErrorCode::Unkonw, String::from("")));
+        return Err(AliasError {
+            kind: ErrorKind::Unkonw,
+            msg: String::default(),
+        });
     }
 
     let cli = Cli::parse();
@@ -65,7 +68,7 @@ fn runtime_variables_vec_to_map(
         let split: Vec<&str> = kv.split('=').collect();
         if split.len() != 2 {
             return Err(AliasError {
-                err: AliasErrorCode::Unkonw,
+                kind: ErrorKind::Unkonw,
                 msg: format!(
                     "runtime variables define should be like \"--define key=value\" :: {}",
                     kv
