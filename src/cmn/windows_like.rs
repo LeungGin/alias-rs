@@ -1,10 +1,11 @@
 use crate::core::error::{AliasError, ErrorKind};
 use encoding_rs::GBK;
 use std::{
-    fs::File,
     io::Write,
     process::{Command, ExitStatus},
 };
+
+use super::files;
 
 pub fn get_local_app_home() -> String {
     std::env::var("LocalAppData").map_or(String::default(), |val| val)
@@ -12,7 +13,7 @@ pub fn get_local_app_home() -> String {
 
 pub fn create_ansi_file(path: &String, content: &String) -> Result<(), AliasError> {
     let encoded_str = GBK.encode(&content).0;
-    File::create(path)
+    files::create_with_all_dir(path)
         .and_then(|mut f| f.write_all(&encoded_str))
         .map_err(|e| AliasError {
             kind: ErrorKind::Unkonw,
@@ -65,8 +66,11 @@ pub fn execute_cmd(cmd: &String) -> Result<ExecuteCmdResult, AliasError> {
 }
 
 pub fn execute_cmd_in_powershell(cmd: &String) -> Result<ExecuteCmdResult, AliasError> {
+    // comand execute in cmd.exe can not use '$args'
+    // (for example, PowerShell -ExecutionPolicy Bypass -Command xxx &args),
+    // only supported in script
     let cmd = format!(
-        "PowerShell -ExecutionPolicy Bypass -Command '{} ^$args'",
+        "PowerShell -ExecutionPolicy Bypass -Command {}",
         convert_to_bat_str_arg(cmd.to_string())
     );
     execute_cmd(&cmd)
@@ -78,7 +82,7 @@ pub fn convert_to_bat_str_arg(string_arg: String) -> String {
 
 pub fn get_user_env_var(var_name: &String) -> Result<Option<String>, AliasError> {
     let ps_cmd = format!(
-        "(reg query \"HKCU\\Environment\" /v \"{}\")[2] -split \"    \" | Select-Object -Last 1",
+        "(Get-ItemProperty -Path \"HKCU:\\Environment\").{}",
         var_name
     );
     let result = execute_cmd_in_powershell(&ps_cmd)?;

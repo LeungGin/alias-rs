@@ -6,7 +6,7 @@ use crate::{
         error::{AliasError, ErrorKind},
     },
 };
-use std::{collections::HashMap, fs::File};
+use std::collections::HashMap;
 
 const DEFAULT_HOME: &str = "alias-rs";
 const DEFAULT_SCRIPT_HOME_NAME: &str = "script";
@@ -90,10 +90,6 @@ impl Alias for WindowsAlias {
 
     fn set(&self, alias: String, command: String) -> Result<(), AliasError> {
         let alias_script_path = self.build_alias_script_path(&alias);
-        File::create(&alias_script_path).map_err(|e| AliasError {
-            kind: ErrorKind::Unkonw,
-            msg: format!("create alias script fail :: {}", e),
-        })?;
         let bat_script = format!(
             "PowerShell -ExecutionPolicy Bypass -Command {} ^$args",
             windows_like::convert_to_bat_str_arg(command)

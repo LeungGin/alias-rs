@@ -110,7 +110,7 @@ impl Alias for UnixLikeAlias {
 
     fn set(&self, alias: String, command: String) -> Result<(), AliasError> {
         let alias_script_path = self.build_alias_script_path(&alias);
-        File::create(alias_script_path)
+        files::create_with_all_dir(&alias_script_path)
             .and_then(|mut f| f.write_all(command.as_bytes()))
             .map_err(|e| AliasError {
                 kind: ErrorKind::Unkonw,

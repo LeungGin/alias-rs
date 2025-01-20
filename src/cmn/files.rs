@@ -1,7 +1,28 @@
 use std::{
-    fs::{self},
+    fs::{self, File},
     path::Path,
 };
+
+pub fn create_new_with_all_dir(path: &String) -> Result<File, std::io::Error> {
+    if let Some(parent) = Path::new(path).parent() {
+        fs::create_dir_all(parent)?;
+    }
+    File::create_new(path)
+}
+
+pub fn create_with_all_dir(path: &String) -> Result<File, std::io::Error> {
+    if let Some(parent) = Path::new(path).parent() {
+        fs::create_dir_all(parent)?;
+    }
+    File::create(path)
+}
+
+pub fn remove_if_present(path: &String) -> Result<(), std::io::Error> {
+    if Path::new(path).exists() {
+        return fs::remove_file(path);
+    }
+    Ok(())
+}
 
 pub fn list_dir(path: &String) -> Result<Option<Vec<String>>, std::io::Error> {
     let path = Path::new(path);
@@ -19,11 +40,4 @@ pub fn list_dir(path: &String) -> Result<Option<Vec<String>>, std::io::Error> {
         }
     }
     return Ok(Some(list));
-}
-
-pub fn remove_if_present(path: &String) -> Result<(), std::io::Error> {
-    if Path::new(path).exists() {
-        return fs::remove_file(path);
-    }
-    Ok(())
 }

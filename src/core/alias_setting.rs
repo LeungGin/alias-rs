@@ -1,9 +1,11 @@
+use crate::cmn::files;
+
 use super::error::{AliasError, ErrorKind};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    fs::{self, File},
+    fs::{self},
     io::Write,
     path::Path,
 };
@@ -55,7 +57,7 @@ pub fn load(
             kind: ErrorKind::Unkonw,
             msg: format!("serialize default setting fail :: {}", e),
         })?;
-        File::create_new(setting_path)
+        files::create_new_with_all_dir(setting_path)
             .and_then(|mut f| f.write_all(content.as_bytes()))
             .map_err(|e| AliasError {
                 kind: ErrorKind::Unkonw,
