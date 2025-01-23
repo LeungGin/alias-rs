@@ -44,7 +44,7 @@ impl ExecuteCmdResult {
 }
 
 pub fn execute_cmd(cmd: &String) -> Result<ExecuteCmdResult, AliasError> {
-    let output = match Command::new("cmd").args(&["/C", cmd]).output() {
+    let output = match Command::new("cmd").args(["/C", cmd]).output() {
         Ok(out) => out,
         Err(e) => {
             return Err(AliasError {
@@ -80,16 +80,44 @@ pub fn convert_to_bat_str_arg(string_arg: String) -> String {
     string_arg.replace("|", "^|").replace("$", "^$")
 }
 
+pub fn user_env_var_exist(var_name: &String) -> Result<bool, AliasError> {
+    let ps_cmd = format!("(Get-ItemProperty -Path 'HKCU:\\Environment').{}", var_name);
+    let result = execute_cmd_in_powershell(&ps_cmd)?;
+    if result.status.success() {
+        Ok(!result.stdout.is_empty())
+    } else {
+        Err(AliasError {
+            kind: ErrorKind::Unkonw,
+            msg: format!(
+                "verify user environment variable exist fail :: {} :: {}",
+                var_name, result.stdout
+            ),
+        })
+    }
+}
+
 pub fn get_user_env_var(var_name: &String) -> Result<Option<String>, AliasError> {
+    if !user_env_var_exist(var_name)? {
+        return Ok(None);
+    }
     let ps_cmd = format!(
-        "(Get-ItemProperty -Path \"HKCU:\\Environment\").{}",
+        "(reg query 'HKEY_CURRENT_USER\\Environment' /v '{}')[2].ToString()",
         var_name
     );
     let result = execute_cmd_in_powershell(&ps_cmd)?;
     if result.status.success() {
-        match result.get_stdout_vec() {
-            Some(outputs) => Ok(Some(outputs.get(0).unwrap().to_string())),
-            None => Ok(None),
+        if let Some(stdout_vec) = result.get_stdout_vec() {
+            Ok(Some(
+                stdout_vec
+                    .get(0)
+                    .unwrap()
+                    .splitn(4, "    ")
+                    .last()
+                    .unwrap()
+                    .to_owned(),
+            ))
+        } else {
+            Ok(None)
         }
     } else {
         Err(AliasError {
@@ -104,7 +132,7 @@ pub fn get_user_env_var(var_name: &String) -> Result<Option<String>, AliasError>
 
 pub fn set_user_env_var(var_name: String, var_value: String) -> Result<(), AliasError> {
     let ps_cmd = format!(
-        "[System.Environment]::SetEnvironmentVariable(\"{}\", \"{}\", \"USER\")",
+        "[System.Environment]::SetEnvironmentVariable('{}', '{}', 'USER')",
         var_name, var_value
     );
     let result = execute_cmd_in_powershell(&ps_cmd)?;
