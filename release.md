@@ -1,6 +1,8 @@
 ## 0.1.0
 
 - feat: 支持多平台（MacOS、Linux、Windows）设置全局命令别名（仅支持对当前用户设置）
+todo- feat: 拆分lib和cli
+todo- feat: 支持工具内快捷管理，使用命令：alias-rs [<Command> [Args...]]
 
 ## 0.2.0
 
